@@ -10,7 +10,7 @@ Audio → log-mel spectrogram → 2D CNN → softmax over 7 emotions.
 | Step | What | Status |
 |---|---|---|
 | 1 | Data preparation + EDA, speaker-independent split | ✅ |
-| 2 | Preprocessing (trim, pad/crop, log-mel) + feature caching | ⏳ |
+| 2 | Preprocessing (trim, pad/crop, log-mel) + feature caching | ✅ |
 | 3 | Augmentation (noise, pitch shift, time stretch, SpecAugment) | ⏳ |
 | 4 | CNN model + training (class weights, early stopping, checkpoints) | ⏳ |
 | 5 | Evaluation (accuracy, macro F1, per-class metrics, confusion matrix) | ⏳ |
@@ -45,6 +45,7 @@ pip install -r requirements.txt
 
 ```bash
 python scripts/step1_prepare_data.py      # downloads RAVDESS, builds data/metadata.csv, EDA plots
+python scripts/step2_extract_features.py  # trim, pad/crop to 3 s, log-mel -> data/features/*.npy
 ```
 
 ## Step 1 – EDA
@@ -52,3 +53,17 @@ python scripts/step1_prepare_data.py      # downloads RAVDESS, builds data/metad
 ![Class distribution](reports/figures/01_class_distribution.png)
 ![Durations](reports/figures/02_durations.png)
 ![Examples](reports/figures/03_examples_per_emotion.png)
+
+Trimmed clips average 1.9 s and only 2.2% are longer than 3 s, so a fixed length of 3 s
+keeps almost all speech while keeping every input the same size.
+
+## Step 2 – Preprocessing
+
+| Stage | Setting |
+|---|---|
+| Resample | 16 kHz, mono |
+| Trim silence | everything 30 dB below the peak at start/end |
+| Fixed length | 3 s (centre crop, or zero-pad on both sides) |
+| Log-mel | n_fft 1024 (64 ms), hop 256 (16 ms), 128 mel bins → **128 × 188** |
+
+![Preprocessing](reports/figures/04_preprocessing_pipeline.png)
