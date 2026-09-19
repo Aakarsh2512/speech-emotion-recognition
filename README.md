@@ -5,6 +5,8 @@ A CNN listens to a short voice clip and classifies the speaker's emotion:
 
 Audio → log-mel spectrogram → 2D CNN → softmax over 7 emotions.
 
+**Result on 4 unseen speakers: 59.2% accuracy, macro F1 0.54** (7 classes, chance = 14%).
+
 ## Project plan
 
 | Step | What | Status |
@@ -13,7 +15,7 @@ Audio → log-mel spectrogram → 2D CNN → softmax over 7 emotions.
 | 2 | Preprocessing (trim, pad/crop, log-mel) + feature caching | ✅ |
 | 3 | Augmentation (noise, pitch shift, time stretch, SpecAugment) | ✅ |
 | 4 | CNN model + training (class weights, early stopping, checkpoints) | ✅ |
-| 5 | Evaluation (accuracy, macro F1, per-class metrics, confusion matrix) | ⏳ |
+| 5 | Evaluation (accuracy, macro F1, per-class metrics, confusion matrix) | ✅ |
 | 6 | Extensions: CNN-LSTM, leakage experiment, Streamlit demo | ⏳ |
 
 ## Dataset
@@ -48,6 +50,7 @@ python scripts/step1_prepare_data.py      # downloads RAVDESS, builds data/metad
 python scripts/step2_extract_features.py  # trim, pad/crop to 3 s, log-mel -> data/features/*.npy
 python scripts/step3_augment.py           # 3 augmented copies of every training clip
 python scripts/step4_train.py             # trains the CNN -> models/cnn.keras
+python scripts/step5_evaluate.py          # metrics + confusion matrix on unseen test actors
 ```
 
 ## Step 1 – EDA
@@ -116,3 +119,37 @@ Input 64 × 94 × 1 (normalised log-mel)
 Best **validation accuracy 68.3%** (epoch 36, stopped at epoch 51).
 
 ![Training curves](reports/figures/06_cnn_training_curves.png)
+
+## Step 5 – Evaluation on unseen test actors (21–24)
+
+| Metric | CNN |
+|---|---|
+| Accuracy | **59.2%** |
+| Macro F1 | **0.542** |
+| Weighted F1 | 0.556 |
+
+| Emotion | Precision | Recall | F1 |
+|---|---|---|---|
+| neutral | 0.63 | 0.92 | 0.75 |
+| happy | 0.36 | 0.38 | 0.37 |
+| sad | 0.50 | 0.09 | 0.16 |
+| angry | 0.51 | 0.69 | 0.59 |
+| fearful | 0.62 | 0.41 | 0.49 |
+| disgust | 0.62 | 0.56 | 0.59 |
+| surprised | 0.79 | 0.94 | 0.86 |
+
+Per actor: 56.7% (21, m), 68.3% (22, f), 50.0% (23, m), 61.7% (24, f).
+
+![Confusion matrix](reports/figures/07_cnn_confusion_matrix.png)
+
+### What the mistakes say
+
+- **sad → neutral (17 of 32 sad clips).** Both are low-arousal: quiet, low pitch, little energy
+  variation. The log-mel is scaled to each clip's own peak (`ref=np.max`), so the absolute loudness
+  difference is removed and the model has to rely on subtler cues.
+- **disgust → angry (12).** Both are negative, and disgust in RAVDESS is often voiced with the same tense, harsh timbre.
+- **happy ↔ surprised / fearful.** All are high-arousal with high pitch; they differ mostly in pitch
+  *contour*, which a CNN with global average pooling only partly captures (see the CNN-LSTM extension).
+- **surprised (94%) and neutral (92%)** are the easiest: very distinctive rising pitch, and very flat delivery.
+- Validation accuracy (68.3%) is higher than test accuracy (59.2%). With only 4 actors per split,
+  individual speaking style matters a lot, so the numbers move by several points between speaker groups.

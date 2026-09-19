@@ -7,7 +7,7 @@ STEP 4 - Train the CNN
 Training data   = original train clips + augmented copies (step 3)
                   + SpecAugment on every batch
 Validation data = actors 17-20, never augmented
-Imbalance       = class weights ("neutral" has 2x clips because calm was merged into it)
+Imbalance       = class weights ("neutral" has 1.5x clips because calm was merged into it)
 Callbacks       = early stopping, learning-rate reduction, best-model checkpoint
 
 Saves:
