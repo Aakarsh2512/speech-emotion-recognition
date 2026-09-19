@@ -5,7 +5,9 @@ A CNN listens to a short voice clip and classifies the speaker's emotion:
 
 Audio → log-mel spectrogram → 2D CNN → softmax over 7 emotions.
 
-**Result on 4 unseen speakers: 59.2% accuracy, macro F1 0.54** (7 classes, chance = 14%).
+**Result on 4 unseen speakers: 62.5% accuracy, macro F1 0.59** (CNN-LSTM, 7 classes, chance = 14%).
+The plain CNN gets 59.2% / 0.54. A random split of the same data gives 67.5% — 8.3 points of
+inflation that comes purely from the model hearing the test speakers during training.
 
 ## Project plan
 
@@ -16,7 +18,7 @@ Audio → log-mel spectrogram → 2D CNN → softmax over 7 emotions.
 | 3 | Augmentation (noise, pitch shift, time stretch, SpecAugment) | ✅ |
 | 4 | CNN model + training (class weights, early stopping, checkpoints) | ✅ |
 | 5 | Evaluation (accuracy, macro F1, per-class metrics, confusion matrix) | ✅ |
-| 6 | Extensions: CNN-LSTM, leakage experiment, Streamlit demo | ⏳ |
+| 6 | Extensions: CNN-LSTM, leakage experiment, Streamlit demo | ✅ |
 
 ## Dataset
 
@@ -51,6 +53,11 @@ python scripts/step2_extract_features.py  # trim, pad/crop to 3 s, log-mel -> da
 python scripts/step3_augment.py           # 3 augmented copies of every training clip
 python scripts/step4_train.py             # trains the CNN -> models/cnn.keras
 python scripts/step5_evaluate.py          # metrics + confusion matrix on unseen test actors
+
+python scripts/step4_train.py --model cnn_lstm     # extension: CNN + BiLSTM + attention
+python scripts/step5_evaluate.py --model cnn_lstm
+python scripts/step6_leakage_experiment.py         # speaker-independent vs random split
+streamlit run app/streamlit_app.py                 # live demo
 ```
 
 ## Step 1 – EDA
@@ -153,3 +160,70 @@ Per actor: 56.7% (21, m), 68.3% (22, f), 50.0% (23, m), 61.7% (24, f).
 - **surprised (94%) and neutral (92%)** are the easiest: very distinctive rising pitch, and very flat delivery.
 - Validation accuracy (68.3%) is higher than test accuracy (59.2%). With only 4 actors per split,
   individual speaking style matters a lot, so the numbers move by several points between speaker groups.
+
+## Step 6 – Extensions
+
+### 6a. CNN-LSTM with attention
+
+The CNN pools over time with a global average, so *when* something happens is lost.
+This variant keeps 3 conv blocks, then reads the 11 remaining time steps with a
+bidirectional LSTM and an attention layer that learns which frames matter.
+
+| Model | Test accuracy | Macro F1 | Params |
+|---|---|---|---|
+| CNN | 59.2% | 0.542 | 423k |
+| **CNN-LSTM + attention** | **62.5%** | **0.588** | 341k |
+
+Biggest gains: angry (F1 0.59 → 0.72), happy (0.37 → 0.48), disgust (0.59 → 0.69).
+`sad` stays the weakest class (recall 0.16) and is still mostly predicted as `neutral`.
+
+![CNN-LSTM confusion matrix](reports/figures/07_cnn_lstm_confusion_matrix.png)
+
+### 6b. How much does speaker leakage inflate results?
+
+Same model, same augmentation, same 60-epoch schedule — only the split changes.
+
+| Split | Test accuracy | Macro F1 |
+|---|---|---|
+| Speaker-independent (actors 21–24 held out) | 59.2% | 0.542 |
+| Random split, same sizes | **67.5%** | 0.665 |
+
+![Leakage experiment](reports/figures/08_leakage_experiment.png)
+
+**+8.3 accuracy points for free**, just by letting the same voices appear in train and test.
+RAVDESS makes this worse than usual: every actor says the same 2 sentences twice per emotion,
+so a random split can put a near-duplicate recording of a test clip into training.
+This is why published RAVDESS numbers above 80% are often not comparable to the numbers here.
+
+### 6c. Live demo
+
+```bash
+streamlit run app/streamlit_app.py
+```
+
+Record yourself or upload a clip; the app shows the predicted emotion, the probability of
+every class, and the log-mel spectrogram the model actually sees. Note that the model is
+trained on acted studio speech, so a laptop microphone and natural speech are harder than the test set.
+
+## Project layout
+
+```
+src/         config, dataset parsing, features, augmentation, batch generator, models, inference
+scripts/     step1 ... step6, run in order
+app/         Streamlit demo
+models/      trained models + normalisation statistics
+reports/     metrics, per-epoch history, figures
+data/        downloaded audio + cached features (not in git)
+```
+
+## What I would try next
+
+- **Loudness.** The log-mel is scaled per clip (`ref=np.max`), which removes absolute energy — a
+  strong cue for `sad` vs `neutral`. A fixed dB reference is worth testing (a short 30-epoch check
+  was inconclusive: 30.8% vs 28.7% validation accuracy, both undertrained).
+- **More data.** Adding CREMA-D (7,442 clips, 91 speakers) should help generalisation far more than
+  tuning the architecture on 24 actors, and enables a cross-dataset test.
+- **Pretrained audio models.** Fine-tuning wav2vec2 or HuBERT typically reaches 75%+ speaker-independent,
+  because it has heard thousands of hours of speech.
+- **5-fold speaker cross-validation** instead of one fixed split: with only 4 test actors, the
+  per-actor spread here is wide (46.7% – 73.3%), so a single split is a noisy estimate.

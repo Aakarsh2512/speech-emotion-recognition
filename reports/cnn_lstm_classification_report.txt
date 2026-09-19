@@ -1,0 +1,16 @@
+cnn_lstm - unseen test actors [21, 22, 23, 24]
+accuracy 0.6250 | macro F1 0.5883
+
+              precision    recall  f1-score   support
+
+     neutral      0.531     0.896     0.667        48
+       happy      0.591     0.406     0.481        32
+         sad      0.556     0.156     0.244        32
+       angry      0.686     0.750     0.716        32
+     fearful      0.522     0.375     0.436        32
+     disgust      0.688     0.688     0.688        32
+   surprised      0.816     0.969     0.886        32
+
+    accuracy                          0.625       240
+   macro avg      0.627     0.606     0.588       240
+weighted avg      0.620     0.625     0.594       240

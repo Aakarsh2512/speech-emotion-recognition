@@ -1,0 +1,12 @@
+{
+  "note": "Same CNN and training pipeline as step 4; only the split differs",
+  "speaker_independent": {
+    "accuracy": 0.5917,
+    "macro_f1": 0.5425
+  },
+  "random_split": {
+    "accuracy": 0.675,
+    "macro_f1": 0.6649
+  },
+  "inflation_accuracy_points": 8.3
+}
