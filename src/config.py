@@ -61,8 +61,10 @@ CLIP_SAMPLES = int(SAMPLE_RATE * CLIP_SECONDS)
 TRIM_TOP_DB = 30                     # silence threshold for trimming
 
 N_FFT = 1024                         # 64 ms window
-HOP_LENGTH = 256                     # 16 ms hop
-N_MELS = 128                         # mel frequency bins
-N_FRAMES = 1 + CLIP_SAMPLES // HOP_LENGTH   # 188 time frames
+HOP_LENGTH = 512                     # 32 ms hop
+N_MELS = 64                          # mel frequency bins
+N_FRAMES = 1 + CLIP_SAMPLES // HOP_LENGTH   # 94 time frames
+# 64 x 94 instead of 128 x 188: ~4x faster training on a laptop CPU
+# (2.8 s -> 0.7 s per batch) and 64 mel bins is standard for speech emotion.
 
 RANDOM_SEED = 42

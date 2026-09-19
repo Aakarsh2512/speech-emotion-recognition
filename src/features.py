@@ -5,7 +5,7 @@ Pipeline for one clip:
     load (resample to 16 kHz, mono)
     -> trim leading / trailing silence
     -> pad or crop to exactly 3 seconds
-    -> log-mel spectrogram, shape (128 mel bins, 188 frames)
+    -> log-mel spectrogram, shape (64 mel bins, 94 frames)
 """
 import librosa
 import numpy as np
@@ -60,7 +60,7 @@ def preprocess_file(path):
 
 def log_mel_spectrogram(audio):
     """
-    Log-mel spectrogram in decibels, shape (N_MELS, N_FRAMES) = (128, 188).
+    Log-mel spectrogram in decibels, shape (N_MELS, N_FRAMES) = (64, 94).
     Values are relative to the loudest point of the clip, so they lie in [-80, 0] dB.
     """
     mel = librosa.feature.melspectrogram(

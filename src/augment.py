@@ -50,8 +50,8 @@ def time_stretch(audio, rng, min_rate=0.85, max_rate=1.15):
     return fix_length(stretched).astype(np.float32)
 
 
-def spec_augment(spectrogram, rng, num_freq_masks=2, max_freq_width=15,
-                 num_time_masks=2, max_time_width=20, fill_value=0.0):
+def spec_augment(spectrogram, rng, num_freq_masks=2, max_freq_width=8,
+                 num_time_masks=2, max_time_width=10, fill_value=0.0):
     """
     SpecAugment (Park et al., 2019): hide random horizontal (frequency)
     and vertical (time) stripes so the model cannot rely on one small region.

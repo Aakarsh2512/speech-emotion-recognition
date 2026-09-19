@@ -15,7 +15,7 @@ SpecAugment is not done here; it is applied randomly on every batch
 during training (see src/data_generator.py).
 
 Saves to data/features/:
-    train_aug_mels.npy     (3 * N_train, 128, 188)
+    train_aug_mels.npy     (3 * N_train, 64, 94)
     train_aug_labels.npy   (3 * N_train,)
 """
 import sys

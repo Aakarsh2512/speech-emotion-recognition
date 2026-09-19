@@ -12,7 +12,7 @@ Audio → log-mel spectrogram → 2D CNN → softmax over 7 emotions.
 | 1 | Data preparation + EDA, speaker-independent split | ✅ |
 | 2 | Preprocessing (trim, pad/crop, log-mel) + feature caching | ✅ |
 | 3 | Augmentation (noise, pitch shift, time stretch, SpecAugment) | ✅ |
-| 4 | CNN model + training (class weights, early stopping, checkpoints) | ⏳ |
+| 4 | CNN model + training (class weights, early stopping, checkpoints) | ✅ |
 | 5 | Evaluation (accuracy, macro F1, per-class metrics, confusion matrix) | ⏳ |
 | 6 | Extensions: CNN-LSTM, leakage experiment, Streamlit demo | ⏳ |
 
@@ -47,6 +47,7 @@ pip install -r requirements.txt
 python scripts/step1_prepare_data.py      # downloads RAVDESS, builds data/metadata.csv, EDA plots
 python scripts/step2_extract_features.py  # trim, pad/crop to 3 s, log-mel -> data/features/*.npy
 python scripts/step3_augment.py           # 3 augmented copies of every training clip
+python scripts/step4_train.py             # trains the CNN -> models/cnn.keras
 ```
 
 ## Step 1 – EDA
@@ -65,9 +66,13 @@ keeps almost all speech while keeping every input the same size.
 | Resample | 16 kHz, mono |
 | Trim silence | everything 30 dB below the peak at start/end |
 | Fixed length | 3 s (centre crop, or zero-pad on both sides) |
-| Log-mel | n_fft 1024 (64 ms), hop 256 (16 ms), 128 mel bins → **128 × 188** |
+| Log-mel | n_fft 1024 (64 ms), hop 512 (32 ms), 64 mel bins → **64 × 94** |
 
 ![Preprocessing](reports/figures/04_preprocessing_pipeline.png)
+
+> I started with 128 × 188 inputs, but on a laptop CPU (i5-1235U, no GPU) one epoch took
+> ~5.5 min. 64 × 94 is ~4× faster (2.8 s → 0.7 s per batch) and 64 mel bins is a standard
+> choice for speech emotion, since prosody (pitch, energy, rhythm) does not need fine frequency detail.
 
 ## Step 3 – Augmentation
 
@@ -78,7 +83,7 @@ RAVDESS has only 960 training clips, so augmentation matters.
 | Noise injection | offline (cached) | white noise at SNR 15–30 dB |
 | Pitch shift | offline (cached) | ±0.5–2 semitones |
 | Time stretch | offline (cached) | 0.85×–1.15× speed (+ light noise) |
-| SpecAugment | online, every batch | 2 frequency masks (≤15 bins) + 2 time masks (≤20 frames), p = 0.8 |
+| SpecAugment | online, every batch | 2 frequency masks (≤8 bins) + 2 time masks (≤10 frames), p = 0.8 |
 
 Training set: 960 original + 2,880 augmented = **3,840** spectrograms. Validation and test clips are never augmented.
 
@@ -86,3 +91,28 @@ Pitch shift and time stretch use a phase vocoder with a 32 ms window (`n_fft=512
 librosa's default 128 ms window is too long for 16 kHz speech and visibly smears the harmonics.
 
 ![Augmentations](reports/figures/05_augmentations.png)
+
+## Step 4 – CNN model and training
+
+```
+Input 64 × 94 × 1 (normalised log-mel)
+ ├─ Conv(32)  → BN → ReLU → MaxPool → Dropout 0.2   → 32 × 47
+ ├─ Conv(64)  → BN → ReLU → MaxPool → Dropout 0.2   → 16 × 23
+ ├─ Conv(128) → BN → ReLU → MaxPool → Dropout 0.3   →  8 × 11
+ ├─ Conv(256) → BN → ReLU → MaxPool → Dropout 0.3   →  4 × 5
+ ├─ GlobalAveragePooling → Dense(128) → Dropout 0.5
+ └─ Dense(7, softmax)                                  423k parameters
+```
+
+| Setting | Value |
+|---|---|
+| Normalisation | per mel bin, mean/std from the clean training clips only |
+| Optimiser | Adam, lr 1e-3, halved when val loss plateaus (patience 5) |
+| Loss | sparse categorical cross-entropy + L2 1e-4 |
+| Imbalance | balanced class weights (`neutral` has 1.5× clips) |
+| Early stopping | on val accuracy, patience 15, restores best weights |
+| Batch / epochs | 32 / max 60 |
+
+Best **validation accuracy 68.3%** (epoch 36, stopped at epoch 51).
+
+![Training curves](reports/figures/06_cnn_training_curves.png)

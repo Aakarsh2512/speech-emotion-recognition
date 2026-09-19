@@ -14,7 +14,7 @@ class SpecAugmentGenerator(keras.utils.PyDataset):
 
     def __init__(self, mels, labels, batch_size=32, spec_augment_probability=0.8, seed=42, **kwargs):
         super().__init__(**kwargs)
-        self.mels = mels                    # already normalised, shape (N, 128, 188)
+        self.mels = mels                    # already normalised, shape (N, 64, 94)
         self.labels = labels
         self.batch_size = batch_size
         self.spec_augment_probability = spec_augment_probability

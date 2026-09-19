@@ -4,11 +4,11 @@ STEP 2 - Preprocessing and feature caching
     python scripts/step2_extract_features.py
 
 For every clip: resample to 16 kHz -> trim silence -> pad/crop to 3 s
--> log-mel spectrogram (128 x 188).
+-> log-mel spectrogram (64 x 94).
 
 Saves to data/features/:
     {split}_waves.npy    fixed-length waveforms  (N, 48000)   -> used for augmentation in step 3
-    {split}_mels.npy     log-mel spectrograms    (N, 128, 188)
+    {split}_mels.npy     log-mel spectrograms    (N, 64, 94)
     {split}_labels.npy   emotion index           (N,)
     {split}_actors.npy   actor id                (N,)
 """
